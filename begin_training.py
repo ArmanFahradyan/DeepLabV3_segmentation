@@ -32,13 +32,17 @@ from metrics import hybrid_loss
               default=4,
               type=int,
               help="Specify the batch size for the dataloader.")
-def main(data_directory, exp_directory, model_path, epochs, batch_size):
+@click.option("--num_classes",
+              default=1,
+              type=int,
+              help="Specify the number of classes in the dataset.")
+def main(data_directory, exp_directory, model_path, epochs, batch_size, num_classes):
     # Create the deeplabv3 resnet101 model which is pretrained on a subset
     # of COCO train2017, on the 20 categories that are present in the Pascal VOC dataset.
     if model_path:
         model = torch.load(model_path)
     else:
-        model = createDeepLabv3()
+        model = createDeepLabv3(num_classes)
     model.train()
     data_directory = Path(data_directory)
     # Create the experiment directory if not present

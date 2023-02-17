@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torchvision.ops import sigmoid_focal_loss
+from torchgeometry.losses import DiceLoss
 
 
 class FocalLoss(nn.Module):
@@ -28,9 +29,16 @@ class FocalLoss(nn.Module):
             # N,H*W,C => N*H*W,C
             input = input.contiguous().view(-1, input.size(2))
 
+        # target = target.view(-1, 1)
+        # N,C,H,W => N,C,H*W
+        target = target.view(target.size(0), target.size(1), -1)
 
-        target = target.view(-1, 1)
-        logpt = F.log_softmax(input)
+        # N,C,H*W => N,H*W,C
+        target = target.transpose(1, 2)
+
+        # N,H*W,C => N*H*W,C
+        target = target.contiguous().view(-1, target.size(2))
+        logpt = F.log_softmax(input, dim=-1)
         logpt = logpt.gather(1, target.type(torch.int64)) # added type
         logpt = logpt.view(-1)
         pt = Variable(logpt.data.exp())
@@ -47,6 +55,17 @@ class FocalLoss(nn.Module):
             return loss.mean()
         else:
             return loss.sum()
+        
+        
+def focal_loss(logits, true):
+    num_classes = logits.shape[1]
+
+    if num_classes == 1:
+        return sigmoid_focal_loss(inputs=logits, targets=true, reduction='mean')
+    else:
+        one_hot_true = F.one_hot(true.to(torch.int64).squeeze(1), num_classes).permute(0, 3, 1, 2) # ???
+
+        return FocalLoss(gamma=2)(logits, one_hot_true.to(torch.float32))
 
 def dice_loss(logits, true, eps=1e-7):
     """Computes the Sørensen–Dice loss.
@@ -72,21 +91,22 @@ def dice_loss(logits, true, eps=1e-7):
         # pos_prob = torch.sigmoid(logits)
         # neg_prob = 1 - pos_prob
         # probas = torch.cat([pos_prob, neg_prob], dim=1)
-        pred = torch.sigmoid(logits + 0.1)
+        pred = torch.sigmoid(logits)
         intersection = torch.sum(pred * true)
         cardinality = torch.sum(pred + true)
         dice = 2 * intersection / (cardinality + eps)
         return (1 - dice)
     else:
-        true_1_hot = torch.eye(num_classes)[true.squeeze(1)]
-        true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
-        probas = F.softmax(logits, dim=1)
-    true_1_hot = true_1_hot.type(logits.type())
-    dims = (0,) + tuple(range(2, true.ndimension()))
-    intersection = torch.sum(probas * true_1_hot, dims)
-    cardinality = torch.sum(probas + true_1_hot, dims)
-    dice_loss = (2. * intersection / (cardinality + eps)).mean()
-    return (1 - dice_loss)
+        return DiceLoss()(logits, true.squeeze(1)) 
+    #     true_1_hot = torch.eye(num_classes)[true.squeeze(1)]
+    #     true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
+    #     probas = F.softmax(logits, dim=1)
+    # true_1_hot = true_1_hot.type(logits.type())
+    # dims = (0,) + tuple(range(2, true.ndimension()))
+    # intersection = torch.sum(probas * true_1_hot, dims)
+    # cardinality = torch.sum(probas + true_1_hot, dims)
+    # dice_loss = (2. * intersection / (cardinality + eps)).mean()
+    # return (1 - dice_loss)
 
 
 # def hybrid_loss(prediction, target):
@@ -105,6 +125,6 @@ def dice_loss(logits, true, eps=1e-7):
 def hybrid_loss(logits, target):
 
     # bce = nn.BCEWithLogitsLoss()
-    loss = sigmoid_focal_loss(inputs=logits+0.1, targets=target, reduction='mean') + dice_loss(logits, target) # bce(logits + 0.1, target)
+    loss = focal_loss(logits, target) + dice_loss(logits, target) # bce(logits + 0.1, target)  # sigmoid_focal_loss(inputs=logits+0.1, targets=target, reduction='mean')
 
     return loss

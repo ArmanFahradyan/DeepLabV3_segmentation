@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import time
 import os
 import numpy as np
@@ -50,20 +51,28 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
                 # track history if only in train
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(inputs)
+                    num_classes = outputs['out'].shape[1]
                     # print("!!!!!!!!!!!")
                     # print(outputs['out'].requires_grad, masks.requires_grad)
                     # print("!!!!!!!!!!!")
                     # print("#", outputs['out'].min(), outputs['out'].max(), "#")
                     # print("#", masks.min(), masks.max(), "#")
                     # print("$$$$$$$", outputs['out'].shape, masks.squeeze(1).shape)
-                    loss = criterion(outputs['out'], masks)
+                    # print(outputs['out'].shape, masks.shape)
+                    loss = criterion(outputs['out'] + 0.1 * (num_classes == 1), masks)
+
+
                     # print("AAA", loss, "AAA")
                     # print(loss.requires_grad)
                     # print("!!!", outputs['out'].min(), outputs['out'].max(), "!!!")
                     # print("!!!", masks.min(), masks.max(), "!!!")
                     # print("###", loss.requires_grad, "###")
+                    # print(outputs['out'].shape, masks.shape)
                     y_pred = outputs['out'].data.cpu().numpy().ravel()
-                    y_true = masks.data.cpu().numpy().ravel()
+                    if num_classes == 1:
+                        y_true = masks.data.cpu().numpy().ravel()
+                    else:
+                        y_true = F.one_hot(masks.squeeze(1).to(torch.int64), num_classes).permute(0, 3, 1, 2).data.cpu().numpy().ravel()
                     # print("^^^", y_pred.min(), y_pred.max(), "^^^")
                     # print("^^^", y_true.min(), y_true.max(), "^^^")
                     # --------------------
@@ -85,10 +94,13 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
                         if name == 'f1_score':
                             # Use a classification threshold of 0.1
                             batchsummary[f'{phase}_{name}'].append(
-                                metric(y_true > 0, y_pred > 0.1))
+                                metric(y_true > 0, y_pred > 0.6 if num_classes != 1 else y_pred > 0.1))
                         else:
-                            batchsummary[f'{phase}_{name}'].append(
-                                metric(y_true.astype('uint8'), y_pred))
+                            pass
+                            # batchsummary[f'{phase}_{name}'].append(
+                            #     metric(masks.data.cpu().numpy().ravel().astype('uint8'), 
+                            #            y_pred if num_classes == 1 else outputs['out'].data.cpu().numpy().transpose(0, 2, 3, 1).reshape((-1, num_classes))
+                            #            ))
 
                     # backward + optimize only if in training phase
                     if phase == 'train':
