@@ -7,6 +7,8 @@ from typing import Any, Callable, Optional
 
 import numpy as np
 from PIL import Image
+import torch
+import torchvision.transforms as T
 from torchvision.datasets.vision import VisionDataset
 
 
@@ -114,4 +116,8 @@ class SegmentationDataset(VisionDataset):
             if self.transforms:
                 sample["image"] = self.transforms(sample["image"])
                 sample["mask"] = self.transforms(sample["mask"])
+            else:
+                # sample["image"] = torch.tensor(np.array(sample["image"]))
+                sample["image"] = T.ToTensor()(sample["image"])
+                sample["mask"] = torch.tensor(np.array(sample["mask"])).to(torch.long)
             return sample

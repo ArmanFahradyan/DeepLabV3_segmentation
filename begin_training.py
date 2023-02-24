@@ -4,11 +4,12 @@ import click
 import torch
 from sklearn.metrics import f1_score, roc_auc_score
 from torch.utils import data
+import torch.nn as nn
 
 import datahandler
 from model import createDeepLabv3
 from train import train_model
-from metrics import hybrid_loss
+from metrics import HybridLoss, dice_loss, iou
 # from torchmetrics import Dice
 # from torchgeometry.losses import DiceLoss
 
@@ -51,16 +52,16 @@ def main(data_directory, exp_directory, model_path, epochs, batch_size, num_clas
         exp_directory.mkdir()
 
     # Specify the loss function
-    criterion = hybrid_loss # dice_loss # DiceLoss()  #  Dice(average='micro', threshold=0.1)  # torch.nn.MSELoss(reduction='mean') #    dice_loss  #  hybrid_loss # 
+    criterion = HybridLoss(nn.CrossEntropyLoss(), dice_loss) # hybrid_loss # dice_loss # DiceLoss()  #  Dice(average='micro', threshold=0.1)  # torch.nn.MSELoss(reduction='mean') #    dice_loss  #  hybrid_loss # 
     # Specify the optimizer with a lower learning rate
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
     # Specify the evaluation metrics
-    metrics = {'f1_score': f1_score, 'auroc': roc_auc_score}
+    metrics = {'f1_score': f1_score, 'auroc': roc_auc_score, 'iou': iou}
 
     # Create the dataloader
     dataloaders = datahandler.get_dataloader_sep_folder(
-        data_directory, batch_size=batch_size)
+        data_directory, batch_size=batch_size, multiclass=(num_classes != 1))
     _ = train_model(model,
                     criterion,
                     dataloaders,
