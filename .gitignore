@@ -132,3 +132,4 @@ dmypy.json
 # custom
 .venv_deeplabv3_segmentation/
 *exp*/
+output_masks/

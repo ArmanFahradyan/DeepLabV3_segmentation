@@ -41,6 +41,8 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
             else:
                 model.eval()  # Set model to evaluate mode
 
+
+            # j = 0
             # Iterate over data.
             for sample in tqdm(iter(dataloaders[phase])):
                 inputs = sample['image'].to(device)
@@ -48,10 +50,12 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
+                # j += 1
                 # track history if only in train
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(inputs)
-                    num_classes = outputs['out'].shape[1]
+                    logits = outputs['out']
+                    num_classes = logits.shape[1]
                     # print("!!!!!!!!!!!")
                     # print(outputs['out'].requires_grad, masks.requires_grad)
                     # print("!!!!!!!!!!!")
@@ -59,7 +63,10 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
                     # print("#", masks.min(), masks.max(), "#")
                     # print("$$$$$$$", outputs['out'].shape, masks.squeeze(1).shape)
                     # print(outputs['out'].shape, masks.shape)
-                    loss = criterion(outputs['out'] + 0.1 * (num_classes == 1), masks)
+                    # print(logits.device, masks.to(torch.long).device)
+                    # print(logits.shape, masks.to(torch.long).squeeze(1).shape)
+                    
+                    loss = criterion(logits, masks) #  + 0.1 * (num_classes == 1)
 
 
                     # print("AAA", loss, "AAA")
@@ -68,11 +75,22 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
                     # print("!!!", masks.min(), masks.max(), "!!!")
                     # print("###", loss.requires_grad, "###")
                     # print(outputs['out'].shape, masks.shape)
-                    y_pred = outputs['out'].data.cpu().numpy().ravel()
+                    
                     if num_classes == 1:
                         y_true = masks.data.cpu().numpy().ravel()
+                        y_pred = logits.data.cpu().numpy().ravel()
                     else:
-                        y_true = F.one_hot(masks.squeeze(1).to(torch.int64), num_classes).permute(0, 3, 1, 2).data.cpu().numpy().ravel()
+                        y_true = F.one_hot(masks, num_classes).permute(0, 3, 1, 2).data.cpu().numpy().ravel()
+                        assert y_true.sum() == len(y_true) // num_classes
+                        y_pred = F.one_hot(F.softmax(logits, dim=1).argmax(dim=1), num_classes).permute(0, 3, 1, 2).data.cpu().numpy().ravel() # y_pred = F.softmax(logits, dim=1) # .data.cpu().numpy().ravel()
+
+                    # if not os.path.exists(str(bpath)+"/testing_outputs/"):
+                    #     os.mkdir(str(bpath)+"/testing_outputs/")
+                    # if phase == 'val':
+                    #     for i, output in enumerate(F.softmax(logits, dim=1)):
+                    #         output_mask = output.argmax(0)
+                    #         img = output_mask.data.cpu().numpy()
+                    #         cv2.imwrite(str(bpath)+f"/testing_outputs/{epoch}_{phase}_{j}_{i}.png", 85 * img)
                     # print("^^^", y_pred.min(), y_pred.max(), "^^^")
                     # print("^^^", y_true.min(), y_true.max(), "^^^")
                     # --------------------
@@ -94,7 +112,10 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
                         if name == 'f1_score':
                             # Use a classification threshold of 0.1
                             batchsummary[f'{phase}_{name}'].append(
-                                metric(y_true > 0, y_pred > 0.6 if num_classes != 1 else y_pred > 0.1))
+                                metric(y_true > 0, y_pred > 0 if num_classes != 1 else y_pred > 0.1))
+                        elif name == 'iou':
+                            batchsummary[f'{phase}_{name}'].append(
+                                metric(logits.argmax(dim=1), masks, num_classes).mean())
                         else:
                             pass
                             # batchsummary[f'{phase}_{name}'].append(

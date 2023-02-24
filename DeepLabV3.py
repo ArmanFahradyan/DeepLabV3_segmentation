@@ -12,7 +12,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-s', "--source", type=str, required=True, help="path of the image")
 parser.add_argument('-i', "--individual_obj_masks", action="store_true", help="flag indicating that output should be directory containing individual object masks")
-parser.add_argument('-d', "--destination", type=str, default='', help="path of the destination directory")
+parser.add_argument('-d', "--destination", type=str, default='', help="path of the destination directory. Not storing outputs if destination path is not provided")
 parser.add_argument('-m', "--model_path", type=str, default='', help="path of the model. By default it is DeepLabV3 with resnet101 backbone")
 args = parser.parse_args()
 
@@ -76,20 +76,23 @@ def deeplabv3_segment(model, img_path, destination_path, individual_obj_masks):
             cv2.imwrite(destination_path+"by_deeplabv3_"+img_name+ext_name, np_out)
         return np_out
     else:
+        # print(output[:, 0, 0])
         output_predictions = output.argmax(0)
+
+        # print(torch.unique(output_predictions))
     
         # -----------------------------
 
-        # create a color pallette, selecting a color for each class
-        palette = torch.tensor([2 ** 25 - 1, 2 ** 15 - 1, 2 ** 21 - 1])
-        colors = torch.as_tensor([i for i in range(21)])[:, None] * palette
-        colors = (colors % 255).numpy().astype("uint8")
+        # # create a color pallette, selecting a color for each class
+        # palette = torch.tensor([2 ** 25 - 1, 2 ** 15 - 1, 2 ** num_classes - 1])
+        # colors = torch.as_tensor([i for i in range(num_classes)])[:, None] * palette
+        # colors = (colors % 255).numpy().astype("uint8")
 
-        # plot the semantic segmentation predictions of 21 classes in each color
-        r = Image.fromarray(output_predictions.byte().cpu().numpy()).resize(input_image.size)
-        r.putpalette(colors)
+        # # plot the semantic segmentation predictions of 21 classes in each color
+        # r = Image.fromarray(output_predictions.byte().cpu().numpy()).resize(input_image.size)
+        # r.putpalette(colors)
 
-        np_r = np.array(r)
+        np_r = output_predictions.data.cpu().numpy() # np.array(r)
 
         # -----------------------------
 
@@ -101,15 +104,16 @@ def deeplabv3_segment(model, img_path, destination_path, individual_obj_masks):
                 # plt.imshow(mask)
                 # plt.show()
         else:
-            ans = np.zeros(np_r.shape + (3,))    
-            for unique_value in np.unique(np_r)[np.unique(np_r) != 0]:
-                color = np.random.random(3) * 255
-                mask = np_r == unique_value
-                # plt.imshow(mask)
-                # plt.show()
-                mask = np.repeat(mask[:, :, np.newaxis], repeats=3, axis=2)
-                ans = np.where(mask, color, ans)
-            ans = ans.astype("uint8")
+            # ans = np.zeros(np_r.shape + (3,))    
+            # for unique_value in np.unique(np_r)[np.unique(np_r) != 0]:
+            #     color = np.random.random(3) * 255
+            #     mask = np_r == unique_value
+            #     # plt.imshow(mask)
+            #     # plt.show()
+            #     mask = np.repeat(mask[:, :, np.newaxis], repeats=3, axis=2)
+            #     ans = np.where(mask, color, ans)
+            # ans = ans.astype("uint8")
+            ans = np_r
             # plt.imshow(ans)
             # plt.show()
 
@@ -121,8 +125,6 @@ def deeplabv3_segment(model, img_path, destination_path, individual_obj_masks):
                 if not os.path.exists(destination_path+"by_deeplabv3_"+img_name):
                     os.mkdir(destination_path+"by_deeplabv3_"+img_name)
                 for i, mask in enumerate(ans):
-                    # print("barev")
-                    # print(destination_path+"by_deeplabv3_"+img_name+f"/{i}"+ext_name)
                     cv2.imwrite(destination_path+"by_deeplabv3_"+img_name+f"/{i}"+ext_name, mask)
             else:
                 cv2.imwrite(destination_path+"by_deeplabv3_"+img_name+ext_name, ans)

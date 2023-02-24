@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.utils.data
 import torch.nn as nn
@@ -5,6 +6,8 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torchvision.ops import sigmoid_focal_loss
 from torchgeometry.losses import DiceLoss
+
+from sklearn.metrics import f1_score
 
 
 class FocalLoss(nn.Module):
@@ -80,7 +83,6 @@ def dice_loss(logits, true, eps=1e-7):
     Returns:
         dice_loss: the Sørensen–Dice loss.
     """
-    true = true.to(torch.int64)
     num_classes = logits.shape[1]
     if num_classes == 1:
         # true_1_hot = torch.eye(num_classes + 1)[true.squeeze(1)]
@@ -97,7 +99,7 @@ def dice_loss(logits, true, eps=1e-7):
         dice = 2 * intersection / (cardinality + eps)
         return (1 - dice)
     else:
-        return DiceLoss()(logits, true.squeeze(1)) 
+        return DiceLoss()(logits, true) 
     #     true_1_hot = torch.eye(num_classes)[true.squeeze(1)]
     #     true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
     #     probas = F.softmax(logits, dim=1)
@@ -121,10 +123,49 @@ def dice_loss(logits, true, eps=1e-7):
 
 #     return loss
 
+class HybridLoss(nn.Module):
 
-def hybrid_loss(logits, target):
+    def __init__(self, *losses):
+        super(HybridLoss, self).__init__()
+        self.losses = []
+        for loss in losses:
+            self.losses.append(loss)
 
-    # bce = nn.BCEWithLogitsLoss()
-    loss = focal_loss(logits, target) + dice_loss(logits, target) # bce(logits + 0.1, target)  # sigmoid_focal_loss(inputs=logits+0.1, targets=target, reduction='mean')
+    def forward(self, input, target):
+        overall_loss = 0
+        for loss in self.losses:
+            overall_loss += loss(input, target)
+        return overall_loss
 
-    return loss
+
+# def hybrid_loss(logits, target):
+
+#     # bce = nn.BCEWithLogitsLoss()
+#     loss = focal_loss(logits, target) + dice_loss(logits, target) # bce(logits + 0.1, target)  # sigmoid_focal_loss(inputs=logits+0.1, targets=target, reduction='mean')
+
+#     return loss
+
+
+def iou(pred, target, n_classes = 3):
+  ious = []
+  pred = pred.view(-1)
+  target = target.view(-1)
+
+  # Ignore IoU for background class ("0")
+  for cls in range(n_classes):  # This goes from 1:n_classes-1 -> class "0" is ignored
+    pred_inds = pred == cls
+    target_inds = target == cls
+    intersection = (pred_inds[target_inds]).long().sum().data.cpu().item()  # Cast to long to prevent overflows
+    union = pred_inds.long().sum().data.cpu().item() + target_inds.long().sum().data.cpu().item() - intersection
+    if union > 0:
+        ious.append(float(intersection) / float(max(union, 1)))
+
+  return np.array(ious)
+
+
+def f1(logits, masks):
+    assert len(logits.shape) == 4 and len(masks.shape) == 3, "invalid shape of input"
+    num_classes = logits.shape[1]
+    y_true = F.one_hot(masks.squeeze(1).to(torch.int64), num_classes).permute(0, 3, 1, 2).data.cpu().numpy().ravel()
+    y_pred = F.one_hot(F.softmax(logits, dim=1).argmax(dim=1), num_classes).permute(0, 3, 1, 2).data.cpu().numpy().ravel()
+    return f1_score(y_true > 0, y_pred > 0)

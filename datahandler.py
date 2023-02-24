@@ -9,7 +9,8 @@ from segdataset import SegmentationDataset
 def get_dataloader_sep_folder(data_dir: str,
                               image_folder: str = 'images',  # 'Image',
                               mask_folder: str = 'gt',  # 'Mask',
-                              batch_size: int = 4):
+                              batch_size: int = 4,
+                              multiclass: bool = False):
     """ Create train and val dataloaders from two
         separate train and val folders.
         The directory structure should be as follows.
@@ -33,6 +34,7 @@ def get_dataloader_sep_folder(data_dir: str,
         image_folder (str, optional): Image folder name. Defaults to 'Image'.
         mask_folder (str, optional): Mask folder name. Defaults to 'Mask'.
         batch_size (int, optional): Batch size of the dataloader. Defaults to 4.
+        multiclass (bool, optional): Flag, indicating if dataset is multiclass. Defaults to False.
     Returns:
         dataloaders: Returns dataloaders dictionary containing the
         train and val dataloaders.
@@ -41,7 +43,7 @@ def get_dataloader_sep_folder(data_dir: str,
 
     image_datasets = {
         x: SegmentationDataset(root=Path(data_dir) / x,
-                               transforms=data_transforms,
+                               transforms=None if multiclass else data_transforms, # data_transforms,
                                image_folder=image_folder,
                                mask_folder=mask_folder)
         for x in ['train', "val"]
