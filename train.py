@@ -82,7 +82,7 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
                     else:
                         y_true = F.one_hot(masks, num_classes).permute(0, 3, 1, 2).data.cpu().numpy().ravel()
                         assert y_true.sum() == len(y_true) // num_classes
-                        y_pred = F.one_hot(F.softmax(logits, dim=1).argmax(dim=1), num_classes).permute(0, 3, 1, 2).data.cpu().numpy().ravel() # y_pred = F.softmax(logits, dim=1) # .data.cpu().numpy().ravel()
+                        y_pred = F.one_hot(logits.argmax(dim=1), num_classes).permute(0, 3, 1, 2).data.cpu().numpy().ravel() # y_pred = F.softmax(logits, dim=1) # .data.cpu().numpy().ravel()
 
                     # if not os.path.exists(str(bpath)+"/testing_outputs/"):
                     #     os.mkdir(str(bpath)+"/testing_outputs/")
@@ -110,18 +110,35 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
                     # --------------------
                     for name, metric in metrics.items():
                         if name == 'f1_score':
-                            # Use a classification threshold of 0.1
-                            batchsummary[f'{phase}_{name}'].append(
-                                metric(y_true > 0, y_pred > 0 if num_classes != 1 else y_pred > 0.1))
+                            if num_classes == 1:
+                                # Use a classification threshold of 0.1
+                                batchsummary[f'{phase}_{name}'].append(
+                                    metric(y_true > 0, y_pred > 0.1))
+                            else:
+                                batchsummary[f'{phase}_{name}'].append(
+                                    metric(masks.data.cpu().numpy().ravel(), logits.argmax(dim=1).data.cpu().numpy().ravel(), average='weighted')
+                                )
                         elif name == 'iou':
-                            batchsummary[f'{phase}_{name}'].append(
-                                metric(logits.argmax(dim=1), masks, num_classes).mean())
+                            if num_classes == 1:
+                                batchsummary[f'{phase}_{name}'].append(
+                                    metric(torch.sigmoid(logits), masks, num_classes).mean())
+                            else:
+                                batchsummary[f'{phase}_{name}'].append(
+                                    metric(logits.argmax(dim=1), masks, num_classes).mean())
                         else:
-                            pass
-                            # batchsummary[f'{phase}_{name}'].append(
-                            #     metric(masks.data.cpu().numpy().ravel().astype('uint8'), 
-                            #            y_pred if num_classes == 1 else outputs['out'].data.cpu().numpy().transpose(0, 2, 3, 1).reshape((-1, num_classes))
-                            #            ))
+                            if num_classes == 1:
+                                batchsummary[f'{phase}_{name}'].append(
+                                    metric(y_true.astype('uint8'), y_pred))
+                            else:
+                                pass
+                                # true = masks.data.cpu().numpy().reshape(-1)
+                                # pred = F.softmax(logits, dim=1).data.cpu().numpy().transpose(0, 2, 3, 1).reshape((-1, num_classes))
+                                # print(true.shape, pred.shape)
+                                # batchsummary[f'{phase}_{name}'].append(
+                                #     metric(masks.data.cpu().numpy().reshape(-1),
+                                #            F.softmax(logits, dim=1).data.cpu().numpy().transpose(0, 2, 3, 1).reshape((-1, num_classes)),
+                                #            multi_class='ovr'
+                                #         ))
 
                     # backward + optimize only if in training phase
                     if phase == 'train':

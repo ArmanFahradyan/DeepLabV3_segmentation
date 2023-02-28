@@ -10,54 +10,68 @@ from torchgeometry.losses import DiceLoss
 from sklearn.metrics import f1_score
 
 
-class FocalLoss(nn.Module):
-    def __init__(self, gamma=0, alpha=None, size_average=True):
-        super(FocalLoss, self).__init__()
+class FocalLoss(nn.modules.loss._WeightedLoss):
+    def __init__(self, weight=None, gamma=2,reduction='mean'):
+        super(FocalLoss, self).__init__(weight,reduction=reduction)
         self.gamma = gamma
-        self.alpha = alpha
-        if isinstance(alpha, (float, int)):
-            self.alpha = torch.Tensor([alpha, 1-alpha])
-        if isinstance(alpha, list):
-            self.alpha = torch.Tensor(alpha)
-        self.size_average = size_average
+        self.weight = weight #weight parameter will act as the alpha parameter to balance class weights
 
     def forward(self, input, target):
-        if input.dim() > 2:
-            # N,C,H,W => N,C,H*W
-            input = input.view(input.size(0), input.size(1), -1)
 
-            # N,C,H*W => N,H*W,C
-            input = input.transpose(1, 2)
+        ce_loss = F.cross_entropy(input, target,reduction=self.reduction,weight=self.weight)
+        pt = torch.exp(-ce_loss)
+        focal_loss = ((1 - pt) ** self.gamma * ce_loss).mean()
+        return focal_loss
 
-            # N,H*W,C => N*H*W,C
-            input = input.contiguous().view(-1, input.size(2))
 
-        # target = target.view(-1, 1)
-        # N,C,H,W => N,C,H*W
-        target = target.view(target.size(0), target.size(1), -1)
+# class FocalLoss(nn.Module):
+#     def __init__(self, gamma=0, alpha=None, size_average=True):
+#         super(FocalLoss, self).__init__()
+#         self.gamma = gamma
+#         self.alpha = alpha
+#         if isinstance(alpha, (float, int)):
+#             self.alpha = torch.Tensor([alpha, 1-alpha])
+#         if isinstance(alpha, list):
+#             self.alpha = torch.Tensor(alpha)
+#         self.size_average = size_average
 
-        # N,C,H*W => N,H*W,C
-        target = target.transpose(1, 2)
+#     def forward(self, input, target):
+#         if input.dim() > 2:
+#             # N,C,H,W => N,C,H*W
+#             input = input.view(input.size(0), input.size(1), -1)
 
-        # N,H*W,C => N*H*W,C
-        target = target.contiguous().view(-1, target.size(2))
-        logpt = F.log_softmax(input, dim=-1)
-        logpt = logpt.gather(1, target.type(torch.int64)) # added type
-        logpt = logpt.view(-1)
-        pt = Variable(logpt.data.exp())
+#             # N,C,H*W => N,H*W,C
+#             input = input.transpose(1, 2)
 
-        if self.alpha is not None:
-            if self.alpha.type() != input.data.type():
-                self.alpha = self.alpha.type_as(input.data)
-            at = self.alpha.gather(0, target.data.view(-1))
-            logpt = logpt * Variable(at)
+#             # N,H*W,C => N*H*W,C
+#             input = input.contiguous().view(-1, input.size(2))
 
-        loss = -1 * (1-pt)**self.gamma * logpt
+#         # target = target.view(-1, 1)
+#         # N,C,H,W => N,C,H*W
+#         target = target.view(target.size(0), target.size(1), -1)
 
-        if self.size_average:
-            return loss.mean()
-        else:
-            return loss.sum()
+#         # N,C,H*W => N,H*W,C
+#         target = target.transpose(1, 2)
+
+#         # N,H*W,C => N*H*W,C
+#         target = target.contiguous().view(-1, target.size(2))
+#         logpt = F.log_softmax(input, dim=-1)
+#         logpt = logpt.gather(1, target.type(torch.int64)) # added type
+#         logpt = logpt.view(-1)
+#         pt = Variable(logpt.data.exp())
+
+#         if self.alpha is not None:
+#             if self.alpha.type() != input.data.type():
+#                 self.alpha = self.alpha.type_as(input.data)
+#             at = self.alpha.gather(0, target.data.view(-1))
+#             logpt = logpt * Variable(at)
+
+#         loss = -1 * (1-pt)**self.gamma * logpt
+
+#         if self.size_average:
+#             return loss.mean()
+#         else:
+#             return loss.sum()
         
         
 def focal_loss(logits, true):
@@ -66,9 +80,7 @@ def focal_loss(logits, true):
     if num_classes == 1:
         return sigmoid_focal_loss(inputs=logits, targets=true, reduction='mean')
     else:
-        one_hot_true = F.one_hot(true.to(torch.int64).squeeze(1), num_classes).permute(0, 3, 1, 2) # ???
-
-        return FocalLoss(gamma=2)(logits, one_hot_true.to(torch.float32))
+        return FocalLoss(gamma=2)(logits, true)
 
 def dice_loss(logits, true, eps=1e-7):
     """Computes the Sørensen–Dice loss.

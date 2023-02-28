@@ -9,7 +9,7 @@ import torch.nn as nn
 import datahandler
 from model import createDeepLabv3
 from train import train_model
-from metrics import HybridLoss, dice_loss, iou
+from metrics import HybridLoss, dice_loss, focal_loss, iou
 # from torchmetrics import Dice
 # from torchgeometry.losses import DiceLoss
 
@@ -52,7 +52,7 @@ def main(data_directory, exp_directory, model_path, epochs, batch_size, num_clas
         exp_directory.mkdir()
 
     # Specify the loss function
-    criterion = HybridLoss(nn.CrossEntropyLoss(), dice_loss) # hybrid_loss # dice_loss # DiceLoss()  #  Dice(average='micro', threshold=0.1)  # torch.nn.MSELoss(reduction='mean') #    dice_loss  #  hybrid_loss # 
+    criterion = HybridLoss(focal_loss, dice_loss) # hybrid_loss # dice_loss # DiceLoss()  #  Dice(average='micro', threshold=0.1)  # torch.nn.MSELoss(reduction='mean') # nn.CrossEntropyLoss()
     # Specify the optimizer with a lower learning rate
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
