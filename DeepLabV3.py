@@ -11,7 +11,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-s', "--source", type=str, required=True, help="path of the image")
-parser.add_argument('-i', "--individual_obj_masks", action="store_true", help="flag indicating that output should be directory containing individual object masks")
+parser.add_argument('-i', "--individual_class_masks", action="store_true", help="flag indicating that output should be directory containing individual class masks")
 parser.add_argument('-d', "--destination", type=str, default='', help="path of the destination directory. Not storing outputs if destination path is not provided")
 parser.add_argument('-m', "--model_path", type=str, default='', help="path of the model. By default it is DeepLabV3 with resnet101 backbone")
 args = parser.parse_args()
@@ -34,13 +34,16 @@ def get_filename_and_extension_from_path(path):
     ext_name = path[dot_pos:]
     return file_name, ext_name
 
-def deeplabv3_segment(model, img_path, destination_path, individual_obj_masks):
+def deeplabv3_segment(model, img, img_path, destination_path, individual_class_masks):
 
     model.eval()
 
-    input_image = Image.open(img_path)
-    # input_image = input_image.resize((256, 256))
-    input_image = input_image.convert("RGB")
+    if img:
+        input_image = img
+    else:
+        input_image = Image.open(img_path)
+        # input_image = input_image.resize((256, 256))
+        input_image = input_image.convert("RGB")
     preprocess = transforms.Compose([
         transforms.ToTensor(),
         # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
@@ -96,7 +99,7 @@ def deeplabv3_segment(model, img_path, destination_path, individual_obj_masks):
 
         # -----------------------------
 
-        if individual_obj_masks:
+        if individual_class_masks:
             ans = []
             for unique_value in np.unique(np_r)[np.unique(np_r) != 0]:
                 mask = np_r == unique_value
@@ -121,7 +124,7 @@ def deeplabv3_segment(model, img_path, destination_path, individual_obj_masks):
             if not os.path.exists(destination_path):
                 os.mkdir(destination_path)
             img_name, ext_name = get_filename_and_extension_from_path(img_path)
-            if individual_obj_masks:
+            if individual_class_masks:
                 if not os.path.exists(destination_path+"by_deeplabv3_"+img_name):
                     os.mkdir(destination_path+"by_deeplabv3_"+img_name)
                 for i, mask in enumerate(ans):
@@ -141,4 +144,4 @@ def deeplabv3_segment(model, img_path, destination_path, individual_obj_masks):
     # plt.show()
 
 if __name__ == "__main__":
-    deeplabv3_segment(model, args.source, args.destination, args.individual_obj_masks)
+    deeplabv3_segment(model, None, args.source, args.destination, args.individual_class_masks)

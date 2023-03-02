@@ -38,7 +38,7 @@ def eval_by_deeplabv3(source_path, destination_path, model_path):
     img_names.sort()
 
     for name in tqdm(img_names):
-        pred = deeplabv3_segment(model=model, img_path=source_path+"images/"+name, destination_path='', individual_obj_masks=False)
+        pred = deeplabv3_segment(model=model, img=None, img_path=source_path+"images/"+name, destination_path='', individual_class_masks=False)
         if os.path.exists(source_path+"gt"):
             if len(pred.shape) == 2:
                 gt_mask = cv2.imread(source_path+"gt/"+name, cv2.IMREAD_GRAYSCALE)
