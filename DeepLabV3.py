@@ -34,7 +34,7 @@ def get_filename_and_extension_from_path(path):
     ext_name = path[dot_pos:]
     return file_name, ext_name
 
-def deeplabv3_segment(model, img, img_path, destination_path, individual_class_masks):
+def deeplabv3_segment(model, img, img_path=None, destination_path='', individual_class_masks=False):
 
     model.eval()
 
