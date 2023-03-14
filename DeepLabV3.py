@@ -11,9 +11,13 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-s', "--source", type=str, required=True, help="path of the image")
-parser.add_argument('-i', "--individual_class_masks", action="store_true", help="flag indicating that output should be directory containing individual class masks")
-parser.add_argument('-d', "--destination", type=str, default='', help="path of the destination directory. Not storing outputs if destination path is not provided")
-parser.add_argument('-m', "--model_path", type=str, default='', help="path of the model. By default it is DeepLabV3 with resnet101 backbone")
+parser.add_argument('-i', "--individual_class_masks", action="store_true", help="flag indicating that output should be \
+                                                                        directory containing individual class masks")
+parser.add_argument('-n', "--normalize", action="store_true", help="flag indicating if we want to normalize the input")
+parser.add_argument('-d', "--destination", type=str, default='', help="path of the destination directory. \
+                                                            Not storing outputs if destination path is not provided")
+parser.add_argument('-m', "--model_path", type=str, default='', help="path of the model. \
+                                                                    By default it is DeepLabV3 with resnet101 backbone")
 args = parser.parse_args()
 
 if not args.model_path:
@@ -34,20 +38,25 @@ def get_filename_and_extension_from_path(path):
     ext_name = path[dot_pos:]
     return file_name, ext_name
 
-def deeplabv3_segment(model, img, img_path=None, destination_path='', individual_class_masks=False):
+
+def deeplabv3_segment(model, img, img_path=None, destination_path='', individual_class_masks=False, normalize=False):
 
     model.eval()
 
-    if img:
+    if img is not None:
         input_image = img
     else:
         input_image = Image.open(img_path)
         # input_image = input_image.resize((256, 256))
         input_image = input_image.convert("RGB")
-    preprocess = transforms.Compose([
-        transforms.ToTensor(),
-        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
+    preprocess_list = [transforms.ToTensor()]
+    if normalize:
+        preprocess_list.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
+    # preprocess = transforms.Compose([
+    #     transforms.ToTensor(),
+    #     # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    # ])
+    preprocess = transforms.Compose(preprocess_list)
 
     input_tensor = preprocess(input_image)
     input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
@@ -143,5 +152,6 @@ def deeplabv3_segment(model, img, img_path=None, destination_path='', individual
     # plt.imshow(input_image)
     # plt.show()
 
+
 if __name__ == "__main__":
-    deeplabv3_segment(model, None, args.source, args.destination, args.individual_class_masks)
+    deeplabv3_segment(model, None, args.source, args.destination, args.individual_class_masks, args.normalize)
