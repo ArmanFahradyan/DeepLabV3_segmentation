@@ -10,14 +10,6 @@ from tqdm import tqdm
 from DeepLabV3 import deeplabv3_segment
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-s', "--source_path", type=str, required=True, help="path of the data directory where are located \
-                                                                         'images'(required) and 'gt'(optional) directories")
-parser.add_argument('-d', "--destination_path", type=str, required=True, help="path of the destination directory where should be the output images")
-parser.add_argument('-m', "--model_path", type=str, default='', help="path of the model. By default it is DeepLabV3 with resnet101 backbone")
-args = parser.parse_args()
-
-
 def eval_by_deeplabv3(source_path, destination_path, model_path):
 
     if not os.path.exists(destination_path):
@@ -53,4 +45,12 @@ def eval_by_deeplabv3(source_path, destination_path, model_path):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', "--source_path", type=str, required=True, help="path of the data directory where are located \
+                                                                             'images'(required) and 'gt'(optional) directories")
+    parser.add_argument('-d', "--destination_path", type=str, required=True,
+                        help="path of the destination directory where should be the output images")
+    parser.add_argument('-m', "--model_path", type=str, default='',
+                        help="path of the model. By default it is DeepLabV3 with resnet101 backbone")
+    args = parser.parse_args()
     eval_by_deeplabv3(args.source_path, args.destination_path, args.model_path)

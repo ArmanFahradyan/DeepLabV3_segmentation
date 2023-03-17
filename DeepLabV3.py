@@ -9,27 +9,6 @@ from torchvision import transforms
 
 import argparse
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-s', "--source", type=str, required=True, help="path of the image")
-parser.add_argument('-i', "--individual_class_masks", action="store_true", help="flag indicating that output should be \
-                                                                        directory containing individual class masks")
-parser.add_argument('-n', "--normalize", action="store_true", help="flag indicating if we want to normalize the input")
-parser.add_argument('-d', "--destination", type=str, default='', help="path of the destination directory. \
-                                                            Not storing outputs if destination path is not provided")
-parser.add_argument('-m', "--model_path", type=str, default='', help="path of the model. \
-                                                                    By default it is DeepLabV3 with resnet101 backbone")
-args = parser.parse_args()
-
-if not args.model_path:
-
-    # model = torch.hub.load('pytorch/vision:v0.10.0', 'deeplabv3_resnet50', pretrained=True)
-    model = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=True)
-    # or any of these variants
-    # model = torch.hub.load('pytorch/vision:v0.10.0', 'deeplabv3_resnet101', pretrained=True)
-    # model = torch.hub.load('pytorch/vision:v0.10.0', 'deeplabv3_mobilenet_v3_large', pretrained=True)
-else:
-    model = torch.load(args.model_path)
-
 
 def get_filename_and_extension_from_path(path):
     slash_pos = path.rfind("/")
@@ -154,4 +133,25 @@ def deeplabv3_segment(model, img, img_path=None, destination_path='', individual
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', "--source", type=str, required=True, help="path of the image")
+    parser.add_argument('-i', "--individual_class_masks", action="store_true", help="flag indicating that output should be \
+                                                                            directory containing individual class masks")
+    parser.add_argument('-n', "--normalize", action="store_true",
+                        help="flag indicating if we want to normalize the input")
+    parser.add_argument('-d', "--destination", type=str, default='', help="path of the destination directory. \
+                                                                Not storing outputs if destination path is not provided")
+    parser.add_argument('-m', "--model_path", type=str, default='', help="path of the model. \
+                                                                        By default it is DeepLabV3 with resnet101 backbone")
+    args = parser.parse_args()
+
+    if not args.model_path:
+
+        # model = torch.hub.load('pytorch/vision:v0.10.0', 'deeplabv3_resnet50', pretrained=True)
+        model = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=True)
+        # or any of these variants
+        # model = torch.hub.load('pytorch/vision:v0.10.0', 'deeplabv3_resnet101', pretrained=True)
+        # model = torch.hub.load('pytorch/vision:v0.10.0', 'deeplabv3_mobilenet_v3_large', pretrained=True)
+    else:
+        model = torch.load(args.model_path)
     deeplabv3_segment(model, None, args.source, args.destination, args.individual_class_masks, args.normalize)

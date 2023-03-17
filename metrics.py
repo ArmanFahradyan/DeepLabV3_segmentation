@@ -14,7 +14,7 @@ class FocalLoss(nn.modules.loss._WeightedLoss):
     def __init__(self, weight=None, gamma=2,reduction='mean'):
         super(FocalLoss, self).__init__(weight,reduction=reduction)
         self.gamma = gamma
-        self.weight = weight #weight parameter will act as the alpha parameter to balance class weights
+        self.weight = weight  # weight parameter will act as the alpha parameter to balance class weights
 
     def forward(self, input, target):
 
@@ -81,6 +81,7 @@ def focal_loss(logits, true):
         return sigmoid_focal_loss(inputs=logits, targets=true, reduction='mean')
     else:
         return FocalLoss(gamma=2)(logits, true)
+
 
 def dice_loss(logits, true, eps=1e-7):
     """Computes the Sørensen–Dice loss.
