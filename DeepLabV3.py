@@ -1,6 +1,5 @@
 import torch
 from PIL import Image
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import cv2
@@ -26,19 +25,15 @@ def deeplabv3_segment(model, img, img_path=None, destination_path='', individual
         input_image = img
     else:
         input_image = Image.open(img_path)
-        # input_image = input_image.resize((256, 256))
         input_image = input_image.convert("RGB")
     preprocess_list = [transforms.ToTensor()]
     if normalize:
         preprocess_list.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
-    # preprocess = transforms.Compose([
-    #     transforms.ToTensor(),
-    #     # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    # ])
     preprocess = transforms.Compose(preprocess_list)
 
     input_tensor = preprocess(input_image)
-    input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
+    # create a mini-batch as expected by the model
+    input_batch = input_tensor.unsqueeze(0)
 
     # move the input and model to GPU for speed if available
     if torch.cuda.is_available():
@@ -47,13 +42,6 @@ def deeplabv3_segment(model, img, img_path=None, destination_path='', individual
 
     with torch.no_grad():
         output = model(input_batch)['out'][0]
-
-    # print("<---->", output.min(), output.max())
-    # output[output >= 0.1] = 1
-    # output[output < 0.1] = 0
-
-
-    # print(output.shape)
 
     if output.shape[0] == 1:
         output_predictions = output[0]
@@ -67,46 +55,17 @@ def deeplabv3_segment(model, img, img_path=None, destination_path='', individual
             cv2.imwrite(destination_path+"by_deeplabv3_"+img_name+ext_name, np_out)
         return np_out
     else:
-        # print(output[:, 0, 0])
         output_predictions = output.argmax(0)
 
-        # print(torch.unique(output_predictions))
-    
-        # -----------------------------
-
-        # # create a color pallette, selecting a color for each class
-        # palette = torch.tensor([2 ** 25 - 1, 2 ** 15 - 1, 2 ** num_classes - 1])
-        # colors = torch.as_tensor([i for i in range(num_classes)])[:, None] * palette
-        # colors = (colors % 255).numpy().astype("uint8")
-
-        # # plot the semantic segmentation predictions of 21 classes in each color
-        # r = Image.fromarray(output_predictions.byte().cpu().numpy()).resize(input_image.size)
-        # r.putpalette(colors)
-
-        np_r = output_predictions.data.cpu().numpy() # np.array(r)
-
-        # -----------------------------
+        np_r = output_predictions.data.cpu().numpy() 
 
         if individual_class_masks:
             ans = []
             for unique_value in np.unique(np_r)[np.unique(np_r) != 0]:
                 mask = np_r == unique_value
                 ans.append(mask.astype("uint8") * 255)
-                # plt.imshow(mask)
-                # plt.show()
         else:
-            # ans = np.zeros(np_r.shape + (3,))    
-            # for unique_value in np.unique(np_r)[np.unique(np_r) != 0]:
-            #     color = np.random.random(3) * 255
-            #     mask = np_r == unique_value
-            #     # plt.imshow(mask)
-            #     # plt.show()
-            #     mask = np.repeat(mask[:, :, np.newaxis], repeats=3, axis=2)
-            #     ans = np.where(mask, color, ans)
-            # ans = ans.astype("uint8")
             ans = np_r
-            # plt.imshow(ans)
-            # plt.show()
 
         if destination_path:
             if not os.path.exists(destination_path):
@@ -122,16 +81,6 @@ def deeplabv3_segment(model, img, img_path=None, destination_path='', individual
             
         return ans
 
-    # transparency_mask = Image.new("L", input_image.size, 150)
-
-    # # color_mask = Image.new("RGB", input_image.size, (255, 0, 0))
-
-    # input_image.paste(r, (0, 0), transparency_mask)
-
-    # plt.imshow(input_image)
-    # plt.show()
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', "--source", type=str, required=True, help="path of the image")
@@ -146,12 +95,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if not args.model_path:
-
-        # model = torch.hub.load('pytorch/vision:v0.10.0', 'deeplabv3_resnet50', pretrained=True)
         model = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=True)
-        # or any of these variants
-        # model = torch.hub.load('pytorch/vision:v0.10.0', 'deeplabv3_resnet101', pretrained=True)
-        # model = torch.hub.load('pytorch/vision:v0.10.0', 'deeplabv3_mobilenet_v3_large', pretrained=True)
     else:
         model = torch.load(args.model_path)
     deeplabv3_segment(model, None, args.source, args.destination, args.individual_class_masks, args.normalize)

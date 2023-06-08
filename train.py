@@ -41,8 +41,6 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
             else:
                 model.eval()  # Set model to evaluate mode
 
-
-            # j = 0
             # Iterate over data.
             for sample in tqdm(iter(dataloaders[phase])):
                 inputs = sample['image'].to(device)
@@ -50,31 +48,12 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
-                # j += 1
                 # track history if only in train
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(inputs)
                     logits = outputs['out']
                     num_classes = logits.shape[1]
-                    # print("!!!!!!!!!!!")
-                    # print(outputs['out'].requires_grad, masks.requires_grad)
-                    # print("!!!!!!!!!!!")
-                    # print("#", outputs['out'].min(), outputs['out'].max(), "#")
-                    # print("#", masks.min(), masks.max(), "#")
-                    # print("$$$$$$$", outputs['out'].shape, masks.squeeze(1).shape)
-                    # print(outputs['out'].shape, masks.shape)
-                    # print(logits.device, masks.to(torch.long).device)
-                    # print(logits.shape, masks.to(torch.long).squeeze(1).shape)
-                    
                     loss = criterion(logits, masks) #  + 0.1 * (num_classes == 1)
-
-
-                    # print("AAA", loss, "AAA")
-                    # print(loss.requires_grad)
-                    # print("!!!", outputs['out'].min(), outputs['out'].max(), "!!!")
-                    # print("!!!", masks.min(), masks.max(), "!!!")
-                    # print("###", loss.requires_grad, "###")
-                    # print(outputs['out'].shape, masks.shape)
                     
                     if num_classes == 1:
                         y_true = masks.data.cpu().numpy().ravel()
@@ -84,30 +63,7 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
                         assert y_true.sum() == len(y_true) // num_classes
                         y_pred = F.one_hot(logits.argmax(dim=1), num_classes).permute(0, 3, 1, 2).data.cpu().numpy().ravel() # y_pred = F.softmax(logits, dim=1) # .data.cpu().numpy().ravel()
 
-                    # if not os.path.exists(str(bpath)+"/testing_outputs/"):
-                    #     os.mkdir(str(bpath)+"/testing_outputs/")
-                    # if phase == 'val':
-                    #     for i, output in enumerate(F.softmax(logits, dim=1)):
-                    #         output_mask = output.argmax(0)
-                    #         img = output_mask.data.cpu().numpy()
-                    #         cv2.imwrite(str(bpath)+f"/testing_outputs/{epoch}_{phase}_{j}_{i}.png", 85 * img)
-                    # print("^^^", y_pred.min(), y_pred.max(), "^^^")
-                    # print("^^^", y_true.min(), y_true.max(), "^^^")
-                    # --------------------
-                    # if phase == 'val':
-                    #     for i in range(len(outputs['out'])):
-                    #         img_ch = outputs['out'][i][0].data.cpu().numpy()
-                    #         mask_ch = masks[i][0].data.cpu().numpy()
-                    #         img_ch[img_ch > 0.1] = 255
-                    #         img_ch[img_ch <= 0.1] = 0
-                    #         mask_ch[mask_ch > 0.5] = 255
-                    #         mask_ch[mask_ch <= 0.5] = 0
-                    #         connected = np.concatenate([img_ch, mask_ch], axis=1)
-                    #         pil_connected = Image.fromarray(connected).convert("RGB")
-                    #         pil_connected.save(f"/home/arman/Desktop/checking_results/{j}_{i}_{epoch}.png")
-                    #         # plt.imshow(connected, cmap='Greys')
-                    #         # plt.show()
-                    # --------------------
+
                     for name, metric in metrics.items():
                         if name == 'f1_score':
                             if num_classes == 1:
@@ -131,14 +87,6 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
                                     metric(y_true.astype('uint8'), y_pred))
                             else:
                                 pass
-                                # true = masks.data.cpu().numpy().reshape(-1)
-                                # pred = F.softmax(logits, dim=1).data.cpu().numpy().transpose(0, 2, 3, 1).reshape((-1, num_classes))
-                                # print(true.shape, pred.shape)
-                                # batchsummary[f'{phase}_{name}'].append(
-                                #     metric(masks.data.cpu().numpy().reshape(-1),
-                                #            F.softmax(logits, dim=1).data.cpu().numpy().transpose(0, 2, 3, 1).reshape((-1, num_classes)),
-                                #            multi_class='ovr'
-                                #         ))
 
                     # backward + optimize only if in training phase
                     if phase == 'train':
